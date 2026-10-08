@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shortest Path Shopping</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { --bg:#fafaf7; --fg:#222; --muted:#666; --card:#fff; --line:#e3e1da; --accent:#c2410c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16161a; --fg:#eee; --muted:#999; --card:#202026; --line:#33333b; --accent:#fb923c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:1100px; margin:0 auto; padding:16px; display:grid; gap:16px; grid-template-columns:1fr; }
+  @media (min-width:900px) { main { grid-template-columns:380px 1fr; } }
+  h1 { font-size:1.3rem; margin:0 0 4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
+  input[type=text], select, button { width:100%; font:inherit; padding:8px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
+  button { background:var(--accent); color:#fff; border:0; cursor:pointer; margin-top:10px; font-weight:600; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .row { display:flex; gap:8px; align-items:center; } .row input { width:auto; }
+  #map { height:70vh; min-height:360px; border-radius:10px; border:1px solid var(--line); }
+  textarea { width:100%; font:inherit; padding:8px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
+  ol.how li { display:list-item; list-style:decimal; margin-left:18px; padding:4px 0; border:0; }
+  details { margin-top:12px; } summary { cursor:pointer; font-weight:600; }
+  #gmaps { margin-top:6px; }
+  ol { padding-left:0; list-style:none; margin:8px 0 0; }
+  li { display:flex; gap:10px; padding:8px 0; border-top:1px solid var(--line); }
+  li:first-child { border-top:0; }
+  .n { flex:none; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; text-align:center; line-height:26px; font-size:.8rem; font-weight:700; }
+  .leg { color:var(--muted); font-size:.8rem; } .addr { color:var(--muted); font-size:.85rem; }
+  #status { color:var(--muted); font-size:.9rem; margin-top:8px; min-height:1.2em; }
+  a { color:var(--accent); }
+  .pin { background:var(--accent); color:#fff; border-radius:50%; text-align:center; font:700 12px/24px system-ui; width:24px; height:24px; border:2px solid #fff; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <div class="card">
+      <h1>Shortest Path Shopping</h1>
+      <div id="listTitle" class="leg">No list loaded yet.</div>
+
+      <details id="howto" open>
+        <summary>How to load a Google Maps list</summary>
+        <ol class="how">
+          <li>One-time: add the <a id="bm" href="#">Load list</a> bookmark. On a computer, drag it to your bookmarks bar. On a phone, tap <em>Copy bookmark code</em>, save any page as a bookmark, and paste the code as its address.</li>
+          <li>Open the shared list link in Google Maps (in the browser, not the app).</li>
+          <li>Tap the <em>Load list</em> bookmark. You land back here with the list loaded.</li>
+        </ol>
+        <button id="copybm" type="button">Copy bookmark code</button>
+        <label for="paste">Or paste copied list data here</label>
+        <textarea id="paste" rows="2" placeholder='{"title":…}'></textarea>
+        <button id="load" type="button">Load pasted data</button>
+      </details>
+
+      <div id="controls" hidden>
+        <label for="start">Start at</label>
+        <select id="start"></select>
+        <label class="row"><input id="round" type="checkbox"> Return to start</label>
+        <button id="go" type="button">Find shortest walking route</button>
+      </div>
+      <div id="status"></div>
+    </div>
+    <div class="card" id="result" hidden>
+      <strong id="summary"></strong>
+      <div id="gmaps"></div>
+    </div>
+  </section>
+  <div>
+    <div id="map"></div>
+    <details class="card" id="steps" hidden>
+      <summary>Show stops in order</summary>
+      <ol id="stops"></ol>
+    </details>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const OSRM = "https://routing.openstreetmap.de/routed-foot";
+
+const $ = (id) => document.getElementById(id);
+const map = L.map("map").setView([48, 10], 4);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+let layer = L.layerGroup().addTo(map);
+let places = [];
+
+const status = (t) => ($("status").textContent = t);
+const fmtMin = (s) => `${Math.round(s / 60)} min`;
+const fmtKm = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`);
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function setPlaces(data) {
+  places = data.places;
+  $("listTitle").textContent = `${data.title} – ${places.length} places`;
+  $("start").innerHTML = '<option value="-1">Best starting point</option>' +
+    places.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join("");
+  $("result").hidden = true;
+  $("steps").hidden = true;
+  $("controls").hidden = false;
+  layer.clearLayers();
+  places.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 6, color: "#c2410c" }).bindTooltip(p.name).addTo(layer));
+  map.fitBounds(places.map((p) => [p.lat, p.lon]), { padding: [30, 30] });
+  status("");
+}
+
+// ---- OSRM -----------------------------------------------------------
+async function matrix() {
+  const coords = places.map((p) => `${p.lon},${p.lat}`).join(";");
+  try {
+    const r = await fetch(`${OSRM}/table/v1/foot/${coords}?annotations=duration,distance`);
+    const j = await r.json();
+    if (j.code !== "Ok") throw new Error(j.code);
+    return { dur: j.durations, dist: j.distances, fallback: false };
+  } catch (e) {
+    // Offline routing server: use straight-line distance at 5 km/h.
+    const d = places.map((a) => places.map((b) => haversine(a, b)));
+    return { dur: d.map((r) => r.map((m) => m / 1.39)), dist: d, fallback: true };
+  }
+}
+
+function haversine(a, b) {
+  const rad = (x) => (x * Math.PI) / 180;
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.sqrt(h));
+}
+
+// ---- Shortest path (open path, or round trip) --------------------------
+const cost = (path, d, round) =>
+  path.reduce((s, v, i) => (i ? s + d[path[i - 1]][v] : s), 0) + (round ? d[path[path.length - 1]][path[0]] : 0);
+
+function heldKarp(d, start, round) {
+  const n = d.length, others = [...Array(n).keys()].filter((i) => i !== start);
+  const m = others.length, full = (1 << m) - 1;
+  const C = Array.from({ length: 1 << m }, () => new Float64Array(m).fill(Infinity));
+  const P = Array.from({ length: 1 << m }, () => new Int8Array(m).fill(-1));
+  others.forEach((v, j) => (C[1 << j][j] = d[start][v]));
+  for (let mask = 1; mask <= full; mask++)
+    for (let j = 0; j < m; j++) {
+      if (!(mask & (1 << j)) || C[mask][j] === Infinity) continue;
+      for (let k = 0; k < m; k++) {
+        if (mask & (1 << k)) continue;
+        const nm = mask | (1 << k), c = C[mask][j] + d[others[j]][others[k]];
+        if (c < C[nm][k]) { C[nm][k] = c; P[nm][k] = j; }
+      }
+    }
+  let end = 0, best = Infinity;
+  for (let j = 0; j < m; j++) {
+    const c = C[full][j] + (round ? d[others[j]][start] : 0);
+    if (c < best) { best = c; end = j; }
+  }
+  const path = []; let mask = full, j = end;
+  while (j !== -1) { path.push(others[j]); const pj = P[mask][j]; mask ^= 1 << j; j = pj; }
+  return [start, ...path.reverse()];
+}
+
+function heuristic(d, start, round) {
+  const n = d.length; let path = [start]; const left = new Set([...Array(n).keys()].filter((i) => i !== start));
+  while (left.size) {
+    const last = path[path.length - 1];
+    const next = [...left].reduce((a, b) => (d[last][b] < d[last][a] ? b : a));
+    path.push(next); left.delete(next);
+  }
+  for (let improved = true; improved; ) {
+    improved = false;
+    for (let i = 1; i < n - 1; i++)
+      for (let k = i + 1; k < n; k++) {
+        const cand = [...path.slice(0, i), ...path.slice(i, k + 1).reverse(), ...path.slice(k + 1)];
+        if (cost(cand, d, round) < cost(path, d, round) - 1e-9) { path = cand; improved = true; }
+      }
+  }
+  return path;
+}
+
+const solve = (d, s, round) => (d.length <= 13 ? heldKarp(d, s, round) : heuristic(d, s, round));
+
+// ---- UI ----------------------------------------------------------------
+async function run() {
+  $("go").disabled = true; status("Fetching walking distances…");
+  try {
+    const { dur, dist, fallback } = await matrix();
+    const round = $("round").checked, chosen = +$("start").value;
+    const starts = chosen >= 0 ? [chosen] : places.map((_, i) => i);
+    status("Optimising…");
+    await new Promise((r) => setTimeout(r));
+    const order = starts.map((s) => solve(dur, s, round)).reduce((a, b) => (cost(b, dur, round) < cost(a, dur, round) ? b : a));
+    const seq = round ? [...order, order[0]] : order;
+
+    let line = seq.map((i) => [places[i].lat, places[i].lon]);
+    if (!fallback) {
+      try {
+        const q = seq.map((i) => `${places[i].lon},${places[i].lat}`).join(";");
+        const j = await (await fetch(`${OSRM}/route/v1/foot/${q}?overview=full&geometries=geojson`)).json();
+        if (j.code === "Ok") line = j.routes[0].geometry.coordinates.map(([x, y]) => [y, x]);
+      } catch (e) { /* keep straight lines */ }
+    }
+
+    layer.clearLayers();
+    L.polyline(line, { color: "#c2410c", weight: 5, opacity: 0.8 }).addTo(layer);
+    order.forEach((i, n) => L.marker([places[i].lat, places[i].lon], {
+      icon: L.divIcon({ className: "", html: `<div class="pin">${n + 1}</div>`, iconSize: [24, 24] }),
+    }).bindTooltip(places[i].name).addTo(layer));
+    map.fitBounds(line, { padding: [30, 30] });
+
+    let tm = 0, td = 0;
+    $("stops").innerHTML = order.map((i, n) => {
+      let leg = "";
+      if (n) { const a = order[n - 1]; tm += dur[a][i]; td += dist[a][i]; leg = `<div class="leg">${fmtMin(dur[a][i])} · ${fmtKm(dist[a][i])} from previous</div>`; }
+      return `<li><span class="n">${n + 1}</span><div><strong>${esc(places[i].name)}</strong><div class="addr">${esc(places[i].address)}</div>${leg}</div></li>`;
+    }).join("");
+    if (round) { const a = order[order.length - 1], b = order[0]; tm += dur[a][b]; td += dist[a][b]; }
+    $("summary").textContent = `${fmtKm(td)} · about ${fmtMin(tm)} walking${fallback ? " (estimate – routing server unavailable)" : ""}`;
+
+    // Google Maps accepts roughly 10 stops per link, so split long routes.
+    const links = []; for (let a = 0; a < seq.length - 1; a += 9) {
+      const part = seq.slice(a, a + 10).map((i) => `${places[i].lat},${places[i].lon}`).join("/");
+      links.push(`<a href="https://www.google.com/maps/dir/${part}/data=!4m2!4m1!3e2" target="_blank" rel="noopener">Open in Google Maps (part ${links.length + 1})</a>`);
+    }
+    $("gmaps").innerHTML = links.join(" · ");
+    $("result").hidden = false; $("steps").hidden = false; status("");
+  } catch (e) { status("Something went wrong: " + e.message); }
+  $("go").disabled = false;
+}
+
+// ---- Loading a list: bookmarklet hands the data over in the URL hash -------
+function loadData(text) {
+  try {
+    const j = JSON.parse(text);
+    if (!j.places || !j.places.length) throw new Error("no places found");
+    setPlaces(j); $("howto").open = false;
+  } catch (e) { status("Could not read that list data: " + e.message); }
+}
+
+function fromHash() {
+  const m = location.hash.match(/^#d=(.+)$/);
+  if (!m) return;
+  try { loadData(decodeURIComponent(escape(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))))); }
+  catch (e) { status("Could not read the list from the link."); }
+  history.replaceState(null, "", location.pathname + location.search);
+}
+
+// Runs on the Google Maps tab (her own connection), reads the open list and sends it back here.
+function bookmarklet(site) {
+  const code = String.raw`(async()=>{try{
+const m=decodeURIComponent(location.href).match(/!2s([A-Za-z0-9_-]{16,})|placelists\/list\/([A-Za-z0-9_-]+)/);
+if(!m){alert('Open the shared list in Google Maps first, then tap this again.');return}
+const r=await fetch('/maps/preview/entitylist/getlist?authuser=0&hl=en&gl=dk&pb=!1m1!1s'+(m[1]||m[2])+'!2e2!3e2!4i500!16b1');
+const t=await r.text();const d=JSON.parse(t.slice(t.indexOf(String.fromCharCode(10))+1))[0];
+const places=(d[8]||[]).map(i=>{const l=i[1],c=l[5];return c?{name:i[2],address:l[4]||l[2],lat:c[2],lon:c[3]}:null}).filter(Boolean);
+const out=JSON.stringify({title:d[4],places});
+try{await navigator.clipboard.writeText(out)}catch(e){}
+location.href=${JSON.stringify(site)}+'#d='+btoa(unescape(encodeURIComponent(out))).replace(/\+/g,'-').replace(/\//g,'_');
+}catch(e){alert('Could not read the list: '+e.message)}})()`;
+  return "javascript:" + encodeURIComponent(code.replace(/\n/g, " "));
+}
+const bmCode = bookmarklet(location.origin + location.pathname);
+$("bm").href = bmCode;
+$("copybm").onclick = () => navigator.clipboard.writeText(decodeURIComponent(bmCode)).then(
+  () => status("Bookmark code copied."), () => status("Could not copy – drag the Load list link instead."));
+$("bm").onclick = (e) => { e.preventDefault(); status("Drag this link to your bookmarks bar – don't click it here."); };
+
+$("go").onclick = run;
+$("load").onclick = () => loadData($("paste").value.trim());
+window.addEventListener("hashchange", fromHash);
+fromHash();
+</script>
+</body>
+</html>
