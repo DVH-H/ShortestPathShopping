@@ -217,13 +217,13 @@ async function run() {
 // ---- Saved lists live in lists/ (see README for how to add one) --------
 async function loadList(file) {
   status("Loading list…");
-  try { setPlaces(await (await fetch("lists/" + file)).json()); }
+  try { setPlaces(await (await fetch("lists/" + file, { cache: "no-cache" })).json()); }
   catch (e) { status("Could not load that list: " + e.message); }
 }
 
 async function init() {
   try {
-    const index = await (await fetch("lists/index.json")).json();
+    const index = await (await fetch("lists/index.json", { cache: "no-cache" })).json();
     if (!index.length) throw new Error("no lists saved yet");
     $("list").innerHTML = index.map((e) => `<option value="${esc(e.file)}">${esc(e.name)}</option>`).join("");
     $("list").onchange = () => loadList($("list").value);
