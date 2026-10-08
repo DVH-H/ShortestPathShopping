@@ -42,7 +42,7 @@ lists are fetched by a person running `shop_route.py` (or optionally a GitHub Ac
 | Path | Purpose |
 |---|---|
 | `index.html` | The whole front end (HTML, CSS, JS in one file; Leaflet from cdnjs). |
-| `lists/index.json` | Registry that fills the dropdown: `[{ "name": "...", "file": "x.json" }]`. |
+| `lists/index.json` | Registry that fills the dropdown: `[{ "name": "...", "file": "x.json", "profiles": ["k","d"] }]`. |
 | `lists/*.json` | One file per saved list (format below). |
 | `shop_route.py` | Python 3 CLI, standard library only: fetches lists, saves them, and can compute a route in the terminal. |
 | `.github/workflows/add-list.yml` | Optional "paste a link" GitHub Action (see below). |
@@ -58,20 +58,31 @@ lists are fetched by a person running `shop_route.py` (or optionally a GitHub Ac
 ```
 Hand-written lists work too; only `name`, `lat` and `lon` are required (`address` may be empty).
 
+## Profiles
+The page has a "Who are you?" selector (currently `k` and `d`, defined in `PROFILES` in `index.html`) so each person only sees their own lists.
+The choice is remembered in the browser's `localStorage`.
+
+- A list is shown to a profile when its `profiles` array in `lists/index.json` contains it.
+- A list with **no** `profiles` key is shown to **everyone**.
+- This is a convenience filter, **not security**: the list files are public in the repo and anyone can switch profile.
+- To add a profile, add it to `PROFILES` in `index.html` and to the lists it should see.
+
 ## Adding a list
 
 ### From your own machine (reliable)
 Requires Python 3.8+. No dependencies.
 ```bash
-python shop_route.py "https://maps.app.goo.gl/XXXXXXXX" --add "Name shown in dropdown"
+python shop_route.py "https://maps.app.goo.gl/XXXXXXXX" --add "Name shown in dropdown" --profiles k,d
 git add lists && git commit -m "Add list" && git push
 ```
 `--add` resolves the link, downloads the list, writes `lists/<slug>.json` and updates `lists/index.json`.
+`--profiles` says who sees it (omit it for everyone; re-adding an existing list without `--profiles` keeps its current visibility).
+Google sometimes answers with an empty result for valid lists, so the script retries up to 6 times.
 Places without coordinates are geocoded with Nominatim (rate limited to 1 request/second, per their usage policy).
 Pages redeploys within a minute or two.
 
 ### From GitHub (best effort)
-Actions → **Add shopping list** → *Run workflow* → paste link and name. It runs the same command on a GitHub runner and
+Actions → **Add shopping list** → *Run workflow* → paste link, name and profiles (default `k,d`). It runs the same command on a GitHub runner and
 commits the result. **This may fail with a 429 from Google**, because runners are datacenter IPs like any other.
 If it does, use the command above.
 

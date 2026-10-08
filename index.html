@@ -41,6 +41,8 @@
       <h1>Shortest Path Shopping</h1>
       <div id="listTitle" class="leg">Loading…</div>
 
+      <label for="profile">Who are you?</label>
+      <select id="profile"></select>
       <label for="list">Shopping list</label>
       <select id="list"></select>
 
@@ -91,7 +93,7 @@ function setPlaces(data) {
   $("controls").hidden = false;
   layer.clearLayers();
   places.forEach((p) => L.circleMarker([p.lat, p.lon], { radius: 6, color: "#c2410c" }).bindTooltip(p.name).addTo(layer));
-  map.fitBounds(places.map((p) => [p.lat, p.lon]), { padding: [30, 30] });
+  if (places.length) map.fitBounds(places.map((p) => [p.lat, p.lon]), { padding: [30, 30] });
   status("");
 }
 
@@ -221,13 +223,30 @@ async function loadList(file) {
   catch (e) { status("Could not load that list: " + e.message); }
 }
 
+// Profiles only filter which lists are shown (not a login). A list is visible to a profile when its
+// "profiles" array in lists/index.json contains it; lists without "profiles" are visible to everyone.
+const PROFILES = { k: "K", d: "D" };
+let index = [];
+
+function showProfile() {
+  const p = $("profile").value;
+  try { localStorage.setItem("profile", p); } catch (e) { /* storage unavailable */ }
+  const mine = index.filter((e) => !e.profiles || e.profiles.includes(p));
+  $("list").innerHTML = mine.map((e) => `<option value="${esc(e.file)}">${esc(e.name)}</option>`).join("");
+  if (mine.length) { loadList(mine[0].file); return; }
+  setPlaces({ title: "No lists for this profile yet", places: [] });
+  $("controls").hidden = true;
+}
+
 async function init() {
+  $("profile").innerHTML = Object.entries(PROFILES).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  try { $("profile").value = localStorage.getItem("profile") || ""; } catch (e) { /* ignore */ }
+  if (!$("profile").value) $("profile").selectedIndex = 0;
+  $("profile").onchange = showProfile;
+  $("list").onchange = () => loadList($("list").value);
   try {
-    const index = await (await fetch("lists/index.json", { cache: "no-cache" })).json();
-    if (!index.length) throw new Error("no lists saved yet");
-    $("list").innerHTML = index.map((e) => `<option value="${esc(e.file)}">${esc(e.name)}</option>`).join("");
-    $("list").onchange = () => loadList($("list").value);
-    loadList(index[0].file);
+    index = await (await fetch("lists/index.json", { cache: "no-cache" })).json();
+    showProfile();
   } catch (e) { $("listTitle").textContent = "No saved lists found."; status(e.message); }
 }
 

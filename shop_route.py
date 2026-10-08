@@ -138,7 +138,7 @@ def solve(d, start, round_trip):
     return held_karp(d, start, round_trip) if len(d) <= 13 else heuristic(d, start, round_trip)
 
 
-def save_list(name, title, places):
+def save_list(name, title, places, profiles=None):
     """Store a list in lists/ and register it in lists/index.json (what the website's dropdown reads)."""
     import os
     folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lists")
@@ -148,7 +148,12 @@ def save_list(name, title, places):
         json.dump({"title": name, "places": places}, f, ensure_ascii=False, indent=1)
     index_path = os.path.join(folder, "index.json")
     index = json.load(open(index_path, encoding="utf-8")) if os.path.exists(index_path) else []
-    index = [e for e in index if e["file"] != slug + ".json"] + [{"name": name, "file": slug + ".json"}]
+    old = next((e for e in index if e["file"] == slug + ".json"), {})
+    entry = {"name": name, "file": slug + ".json"}
+    profiles = profiles or old.get("profiles")  # keep existing visibility when re-adding without --profiles
+    if profiles:
+        entry["profiles"] = profiles
+    index = [e for e in index if e["file"] != slug + ".json"] + [entry]
     with open(index_path, "w", encoding="utf-8") as f:
         json.dump(sorted(index, key=lambda e: e["name"].lower()), f, ensure_ascii=False, indent=1)
     print(f"Saved {len(places)} places to lists/{slug}.json")
@@ -159,6 +164,7 @@ def main():
     ap.add_argument("url")
     ap.add_argument("--start", help="Name (substring) of the place to start at; default = best start")
     ap.add_argument("--export", help="Write the places to this JSON file and exit")
+    ap.add_argument("--profiles", help="Comma-separated profiles that see the list, e.g. k,d (default: everyone). Used with --add")
     ap.add_argument("--add", metavar="NAME", help="Save the list as lists/<name>.json and register it for the website, then exit")
     ap.add_argument("--round-trip", action="store_true", help="Return to the starting place")
     args = ap.parse_args()
@@ -175,7 +181,7 @@ def main():
                 p["lat"], p["lon"] = hit
     places = [p for p in places if p["lat"] is not None]
     if args.add:
-        save_list(args.add, title, places)
+        save_list(args.add, title, places, [p.strip().lower() for p in args.profiles.split(",") if p.strip()] if args.profiles else None)
         return
     if args.export:
         with open(args.export, "w", encoding="utf-8") as f:

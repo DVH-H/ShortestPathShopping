@@ -9,6 +9,10 @@ on:
       name:
         description: Name shown in the website dropdown (e.g. "Firenze vintage")
         required: true
+      profiles:
+        description: Who sees it, comma-separated (e.g. "k,d"). Empty = everyone
+        required: false
+        default: "k,d"
 
 permissions:
   contents: write
@@ -25,7 +29,8 @@ jobs:
         env:
           LIST_URL: ${{ inputs.url }}
           LIST_NAME: ${{ inputs.name }}
-        run: python shop_route.py "$LIST_URL" --add "$LIST_NAME"
+          LIST_PROFILES: ${{ inputs.profiles }}
+        run: python shop_route.py "$LIST_URL" --add "$LIST_NAME" --profiles "$LIST_PROFILES"
       - name: Commit
         env:
           LIST_NAME: ${{ inputs.name }}

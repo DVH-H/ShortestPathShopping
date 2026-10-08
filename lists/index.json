@@ -1,10 +1,10 @@
 [
  {
   "name": "Firenze vintage",
-  "file": "firenze-vintage.json"
- },
- {
-  "name": "Test1",
-  "file": "test1.json"
+  "file": "firenze-vintage.json",
+  "profiles": [
+   "k",
+   "d"
+  ]
  }
 ]
