@@ -42,8 +42,19 @@ def extract_list_id(url):
 def fetch_list(list_id):
     pb = f"!1m1!1s{list_id}!2e2!3e2!4i500!16b1"
     url = f"https://www.google.com/maps/preview/entitylist/getlist?authuser=0&hl=en&gl=dk&pb={pb}"
-    _, body = http_get(url)
-    data = json.loads(body.split("\n", 1)[1])[0]  # strip )]}' prefix, unwrap
+    # Google intermittently answers with an empty result ([null,null,[3,id]]) even for valid lists, so retry.
+    for attempt in range(1, 7):
+        try:
+            _, body = http_get(url)
+            data = json.loads(body.split("\n", 1)[1])[0]  # strip )]}' prefix, unwrap
+        except (IndexError, ValueError, OSError) as e:
+            body, data = str(e), None
+        if data and len(data) >= 9:
+            break
+        print(f"  attempt {attempt}: no list data, retrying...", file=sys.stderr)
+        time.sleep(2 * attempt)
+    else:
+        sys.exit("Google did not return the list (blocked, private or deleted?). Last reply started with:\n" + body[:300])
     title = data[4]
     places = []
     for item in data[8] or []:
