@@ -22,8 +22,6 @@
   button:disabled { opacity:.5; cursor:wait; }
   .row { display:flex; gap:8px; align-items:center; } .row input { width:auto; }
   #map { height:70vh; min-height:360px; border-radius:10px; border:1px solid var(--line); }
-  textarea { width:100%; font:inherit; padding:8px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
-  ol.how li { display:list-item; list-style:decimal; margin-left:18px; padding:4px 0; border:0; }
   details { margin-top:12px; } summary { cursor:pointer; font-weight:600; }
   #gmaps { margin-top:6px; }
   ol { padding-left:0; list-style:none; margin:8px 0 0; }
@@ -41,20 +39,10 @@
   <section>
     <div class="card">
       <h1>Shortest Path Shopping</h1>
-      <div id="listTitle" class="leg">No list loaded yet.</div>
+      <div id="listTitle" class="leg">Loading…</div>
 
-      <details id="howto" open>
-        <summary>How to load a Google Maps list</summary>
-        <ol class="how">
-          <li>One-time: add the <a id="bm" href="#">Load list</a> bookmark. On a computer, drag it to your bookmarks bar. On a phone, tap <em>Copy bookmark code</em>, save any page as a bookmark, and paste the code as its address.</li>
-          <li>Open the shared list link in Google Maps (in the browser, not the app).</li>
-          <li>Tap the <em>Load list</em> bookmark. You land back here with the list loaded.</li>
-        </ol>
-        <button id="copybm" type="button">Copy bookmark code</button>
-        <label for="paste">Or paste copied list data here</label>
-        <textarea id="paste" rows="2" placeholder='{"title":…}'></textarea>
-        <button id="load" type="button">Load pasted data</button>
-      </details>
+      <label for="list">Shopping list</label>
+      <select id="list"></select>
 
       <div id="controls" hidden>
         <label for="start">Start at</label>
@@ -226,47 +214,25 @@ async function run() {
   $("go").disabled = false;
 }
 
-// ---- Loading a list: bookmarklet hands the data over in the URL hash -------
-function loadData(text) {
+// ---- Saved lists live in lists/ (see README for how to add one) --------
+async function loadList(file) {
+  status("Loading list…");
+  try { setPlaces(await (await fetch("lists/" + file)).json()); }
+  catch (e) { status("Could not load that list: " + e.message); }
+}
+
+async function init() {
   try {
-    const j = JSON.parse(text);
-    if (!j.places || !j.places.length) throw new Error("no places found");
-    setPlaces(j); $("howto").open = false;
-  } catch (e) { status("Could not read that list data: " + e.message); }
+    const index = await (await fetch("lists/index.json")).json();
+    if (!index.length) throw new Error("no lists saved yet");
+    $("list").innerHTML = index.map((e) => `<option value="${esc(e.file)}">${esc(e.name)}</option>`).join("");
+    $("list").onchange = () => loadList($("list").value);
+    loadList(index[0].file);
+  } catch (e) { $("listTitle").textContent = "No saved lists found."; status(e.message); }
 }
-
-function fromHash() {
-  const m = location.hash.match(/^#d=(.+)$/);
-  if (!m) return;
-  try { loadData(decodeURIComponent(escape(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))))); }
-  catch (e) { status("Could not read the list from the link."); }
-  history.replaceState(null, "", location.pathname + location.search);
-}
-
-// Runs on the Google Maps tab (her own connection), reads the open list and sends it back here.
-function bookmarklet(site) {
-  const code = String.raw`(async()=>{try{
-const m=decodeURIComponent(location.href).match(/!2s([A-Za-z0-9_-]{16,})|placelists\/list\/([A-Za-z0-9_-]+)/);
-if(!m){alert('Open the shared list in Google Maps first, then tap this again.');return}
-const r=await fetch('/maps/preview/entitylist/getlist?authuser=0&hl=en&gl=dk&pb=!1m1!1s'+(m[1]||m[2])+'!2e2!3e2!4i500!16b1');
-const t=await r.text();const d=JSON.parse(t.slice(t.indexOf(String.fromCharCode(10))+1))[0];
-const places=(d[8]||[]).map(i=>{const l=i[1],c=l[5];return c?{name:i[2],address:l[4]||l[2],lat:c[2],lon:c[3]}:null}).filter(Boolean);
-const out=JSON.stringify({title:d[4],places});
-try{await navigator.clipboard.writeText(out)}catch(e){}
-location.href=${JSON.stringify(site)}+'#d='+btoa(unescape(encodeURIComponent(out))).replace(/\+/g,'-').replace(/\//g,'_');
-}catch(e){alert('Could not read the list: '+e.message)}})()`;
-  return "javascript:" + encodeURIComponent(code.replace(/\n/g, " "));
-}
-const bmCode = bookmarklet(location.origin + location.pathname);
-$("bm").href = bmCode;
-$("copybm").onclick = () => navigator.clipboard.writeText(decodeURIComponent(bmCode)).then(
-  () => status("Bookmark code copied."), () => status("Could not copy – drag the Load list link instead."));
-$("bm").onclick = (e) => { e.preventDefault(); status("Drag this link to your bookmarks bar – don't click it here."); };
 
 $("go").onclick = run;
-$("load").onclick = () => loadData($("paste").value.trim());
-window.addEventListener("hashchange", fromHash);
-fromHash();
+init();
 </script>
 </body>
 </html>

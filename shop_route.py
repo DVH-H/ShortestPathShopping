@@ -127,11 +127,28 @@ def solve(d, start, round_trip):
     return held_karp(d, start, round_trip) if len(d) <= 13 else heuristic(d, start, round_trip)
 
 
+def save_list(name, title, places):
+    """Store a list in lists/ and register it in lists/index.json (what the website's dropdown reads)."""
+    import os
+    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lists")
+    os.makedirs(folder, exist_ok=True)
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "list"
+    with open(os.path.join(folder, slug + ".json"), "w", encoding="utf-8") as f:
+        json.dump({"title": name, "places": places}, f, ensure_ascii=False, indent=1)
+    index_path = os.path.join(folder, "index.json")
+    index = json.load(open(index_path, encoding="utf-8")) if os.path.exists(index_path) else []
+    index = [e for e in index if e["file"] != slug + ".json"] + [{"name": name, "file": slug + ".json"}]
+    with open(index_path, "w", encoding="utf-8") as f:
+        json.dump(sorted(index, key=lambda e: e["name"].lower()), f, ensure_ascii=False, indent=1)
+    print(f"Saved {len(places)} places to lists/{slug}.json")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
     ap.add_argument("--start", help="Name (substring) of the place to start at; default = best start")
     ap.add_argument("--export", help="Write the places to this JSON file and exit")
+    ap.add_argument("--add", metavar="NAME", help="Save the list as lists/<name>.json and register it for the website, then exit")
     ap.add_argument("--round-trip", action="store_true", help="Return to the starting place")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
@@ -146,6 +163,9 @@ def main():
             if hit:
                 p["lat"], p["lon"] = hit
     places = [p for p in places if p["lat"] is not None]
+    if args.add:
+        save_list(args.add, title, places)
+        return
     if args.export:
         with open(args.export, "w", encoding="utf-8") as f:
             json.dump({"title": title, "places": places}, f, ensure_ascii=False, indent=1)

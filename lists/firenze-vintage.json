@@ -1,0 +1,119 @@
+{
+ "title": "Firenze vintage",
+ "places": [
+  {
+   "name": "MVM ITALY",
+   "address": "Piazza di Santa Croce, 31, 50122 Firenze FI, Italien",
+   "lat": 43.768856199999995,
+   "lon": 11.2606738
+  },
+  {
+   "name": "Leonardo Shoes",
+   "address": "Via dei Cerchi, 5R, 50122 Firenze FI, Italien",
+   "lat": 43.7705045,
+   "lon": 11.256067199999999
+  },
+  {
+   "name": "Atelier Rangoni Firenze",
+   "address": "V. Maggio, 51r, 50125 Firenze FI, Italien",
+   "lat": 43.765976699999996,
+   "lon": 11.2486819
+  },
+  {
+   "name": "C’est Chic Vintage Oltrarno",
+   "address": "V. Maggio, 17r, 50125 Firenze FI, Italien",
+   "lat": 43.7674227,
+   "lon": 11.249368299999999
+  },
+  {
+   "name": "Kosmima",
+   "address": "Via dei Velluti, 15r, 50125 Firenze FI, Italien",
+   "lat": 43.76681,
+   "lon": 11.250106599999999
+  },
+  {
+   "name": "Momo Vintage",
+   "address": "Via dei Serragli, 24r, 50124 Firenze FI, Italien",
+   "lat": 43.7680544,
+   "lon": 11.2458776
+  },
+  {
+   "name": "Vintage Santo Spirito",
+   "address": "Via Mazzetta, 12R, 50125 Firenze FI, Italien",
+   "lat": 43.7654691,
+   "lon": 11.2476746
+  },
+  {
+   "name": "Heart to Heart",
+   "address": "Via Santo Spirito, 54R, 50125 Firenze FI, Italien",
+   "lat": 43.768952899999995,
+   "lon": 11.2472315
+  },
+  {
+   "name": "Recollection by Albrici",
+   "address": "Via dei Serragli, 22R, 50125 Firenze FI, Italien",
+   "lat": 43.7681508,
+   "lon": 11.2457596
+  },
+  {
+   "name": "Tartan Vintage",
+   "address": "Via dei Palchetti, 5/5a, 50123 Firenze FI, Italien",
+   "lat": 43.7715591,
+   "lon": 11.2492366
+  },
+  {
+   "name": "C'est Chic Vintage",
+   "address": "Via del Parione, 51/red, 50123 Firenze FI, Italien",
+   "lat": 43.7708991,
+   "lon": 11.2483624
+  },
+  {
+   "name": "Epoca Vintage Firenze",
+   "address": "Via dei Fossi, 6, 50123 Firenze FI, Italien",
+   "lat": 43.7712673,
+   "lon": 11.2480371
+  },
+  {
+   "name": "Officina vintage",
+   "address": "Via del Giglio, 41, 50123 Firenze FI, Italien",
+   "lat": 43.774479,
+   "lon": 11.2518865
+  },
+  {
+   "name": "Street Doing Vintage Couture",
+   "address": "Via dei Servi, 88/r, 50122 Firenze FI, Italien",
+   "lat": 43.7754204,
+   "lon": 11.2594856
+  },
+  {
+   "name": "Rewind Vintage Selection",
+   "address": "Via S. Gallo, 23, 50129 Firenze FI, Italien",
+   "lat": 43.7776208,
+   "lon": 11.256413199999999
+  },
+  {
+   "name": "Melrose Vintage Ginori",
+   "address": "Via de' Ginori, 18r, 50123 Firenze FI, Italien",
+   "lat": 43.776064299999994,
+   "lon": 11.2556073
+  },
+  {
+   "name": "Giratempo Vintage store Firenze",
+   "address": "Piazzetta Piero Calamandrei, 2, 50122 Firenze FI, Italien",
+   "lat": 43.7714049,
+   "lon": 11.2600325
+  },
+  {
+   "name": "MVM RIVIERA",
+   "address": "Via dei Benci, 36 R, 50122 Firenze FI, Italien",
+   "lat": 43.768647099999995,
+   "lon": 11.2603131
+  },
+  {
+   "name": "FLY - Fashion Loves You Store (Vintage and Student Made Fashion)",
+   "address": "Borgo Pinti, 20/red, 50122 Firenze FI, Italien",
+   "lat": 43.772175499999996,
+   "lon": 11.2622134
+  }
+ ]
+}
